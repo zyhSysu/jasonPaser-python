@@ -10,15 +10,6 @@
     "Somestuff": {
         "Brand": "Nike",
         "Type": "RunningShoe",
-        "Price": 500,
-        "Manufacturer": [
-            "China",
-            "India",
-            "USA"
-        ],
-        "Description": {
-            "Size": 41,
-            "Color": "Blue"
-        }
+        "Price": 500
     }
 }
