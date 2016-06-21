@@ -1,0 +1,8 @@
+{
+    "name":'zyh',
+    "ID": 123456,
+    "Friends": [1,2,3,"ninja"],
+    "Some stuff": {"Brand": "Nike",
+                "Type": "Running Shoe",
+                "Price": 500}
+}
