@@ -1,240 +1,218 @@
 #!/usr/bin/env python
 
-import sys
 import re
+import pprint
+import json
 
-PARSER_SUCCESS = 0
-PARSER_EMPTYDICT = 1
-PARSER_SYNTAXERROR = 2
-PARSER_EMPTYJASON = 3
-PARSER_NUMERICERROR = 4
+from exceptionHandler import *
 
 
-class JasonParser:
-	
-	def __init__(self):
+class JsonParser:
+    def __init__(self):
+        self.jsonDict = dict()
 
-		self.jasonDict = dict()
+    def parseJson(self, jsonStr):
 
-	def parseJason(self, jasonStr):
+        jsonStr = self.deleteSpace(jsonStr)
 
-		jasonStr = self.deleteSpace(jasonStr, begin)
+        if len(jsonStr) == 0:
+            raise jsonParserException("Empty Json string")
+        elif len(jsonStr) < 2:
+            raise jsonParserException("Syntax Error: json string length is less than 2")
+        elif jsonStr[0] != '{' or jsonStr[-1] != '}':
+            raise jsonParserException("Syntax Error: brace error")
+        else:
+            self.jsonDict, step = self.parseObject(str(jsonStr)[0: len(jsonStr)])
 
-		if len(jasonStr) == 0:
-			return PARSER_EMPTYJASON
-		elif len(jasonStr) < 2:
-			return PARSER_SYNTAXERROR
-		elif jasonStr[0] != '{' or jasonStr[-1] != '}':
-			return PARSER_SYNTAXERROR
-		else:
-			self.jasonDict, step, status = self.parseObject(str(jasonStr)[0: len(jasonStr)])
+    def parseObject(self, jsonStr):
 
-			return status
+        jsonObj = dict()
 
+        # check the braces completion
+        twoBraces = False
 
-	def parseObject(self, jasonStr):
-		
-		jasonObj = dict()
+        # begin to parse the json object
+        index = 0
 
-		#check the braces completion
-		twoBraces = False
+        if jsonStr[index] != '{':
+            raise jsonParserException("Syntax Error: brace error")
 
-		#begin to parse the jason object
-		index = 0
+        index += 1
 
-		if jasonStr[index] != '{':
-			return None, -1, PARSER_SYNTAXERROR
+        while index < len(jsonStr):
 
-		index += 1
+            if jsonStr[index] == '}':
+                twoBraces = True
 
-		while index < len(jasonStr):
+                break
 
-			if jasonStr[index] == '}':
-				twoBraces = True
+            # parse key(string)
+            strVlue, step = self.parseString(jsonStr[index: len(jsonStr)])
 
-				break
+            key = strVlue
 
-			#parse key(string)
-			strVlue, step, status = self.parseString(jasonStr[index: len(jasonStr)])
+            index += step
 
-			if status != PARSER_SUCCESS:
-				return None, -1, PARSER_SYNTAXERROR
+            # parse symbol ":"
+            if index >= len(jsonStr) or jsonStr[index] != ':':
+                raise jsonParserException("Syntax Error: missing \':\' after key")
 
-			key = strVlue
+            # parse value
+            index += 1
 
-			index += step
+            if jsonStr[index] == '"':  # value is string
+                strValue, step = self.parseString(jsonStr[index: len(jsonStr)])
 
-			#parse symbol ":"
-			if index >= len(jasonStr) or jasonStr[index] != ':':
-				return None, PARSER_SYNTAXERROR
+                jsonObj[key] = strValue
 
-			#parse value
-			index += 1
+                index += step
+            elif jsonStr[index].isdigit() == True:  # value is number
+                numValue, step = self.parseNumber(jsonStr[index: len(jsonStr)])
 
-			if jasonStr[index] == '"':							#value is string
-				strValue, step, status = self.parseString(jasonStr[index: len(jasonStr)])
+                jsonObj[key] = numValue
 
-				if status != PARSER_SUCCESS:
-					return None, -1, PARSER_SYNTAXERROR
+                index += step
+            elif jsonStr[index] == '[':  # value is array
+                arrayValue, step = self.parseArray(jsonStr[index: len(jsonStr)])
 
-				jasonObj[key] = strValue
+                jsonObj[key] = arrayValue
 
-				index += step
-			elif jasonStr[index].isdigit() == True:				#value is number
-				numValue, step, status = self.parseNumber(jasonStr[index: len(jasonStr)])
+                index += step
+            elif jsonStr[index] == '{':  # value is obj
+                objValue, step = self.parseObject(jsonStr[index: len(jsonStr)])
 
-				if status != PARSER_SUCCESS:
-					return None, -1, PARSER_SYNTAXERROR
+                jsonObj[key] = objValue
 
-				jasonObj[key] = numValue
+                index += step
+            else:
+                raise jsonParserException("Unknown Exception")
 
-				index += step
-			elif jasonStr[index] == '[':						#value is array
-				arrayValue, step, status = self.parseArray(jasonStr[index: len(jasonStr)])
+            if index < len(jsonStr) and jsonStr[index] == ',':
+                index += 1
 
-				if status != PARSER_SUCCESS:
-					return None, -1, PARSER_SYNTAXERROR
+        if twoBraces == True:
+            return jsonObj, index + 1
+        else:
+            raise jsonParserException("Syntax Error: Missing \'}\'")
 
-				jasonObj[key] = arrayValue
+    def parseArray(self, jsonStr):
 
-				index += step
-			elif jasonStr[index] == '{':						#value is obj
-				objValue, step, status = self.parseObject(jasonStr[index: len(jasonStr)])
+        jsonArray = list()
 
-				if status != PARSER_SUCCESS:
-					return None, -1, PARSER_SYNTAXERROR
+        # check the braces completion
+        twoBraces = False
 
-				jasonObj[key] = objValue
+        # begin to parse json array
+        index = 0
 
-				index += step
-			else:
-				return None, -1, PARSER_SYNTAXERROR
+        if jsonStr[index] != '[':
+            raise jsonParserException("Syntax Error: Missing \'[\'")
 
-			if index < len(jasonStr) and jasonStr[index] == ',':
-				index += 1
+        index += 1
 
-		if twoBraces == True:
-			return jasonObj, index+1, PARSER_SUCCESS
-		else:
-			return None, -1, PARSER_SYNTAXERROR
+        while index < len(jsonStr):
+            if jsonStr[index] == ']':
+                twoBraces = True
 
-	def parseArray(self, jasonStr):
+                break
 
-		jasonArray = list()
+            if jsonStr[index] == '"':  # element is string
+                strValue, step = self.parseString(jsonStr[index: len(jsonStr)])
 
-		#check the braces completion
-		twoBraces = False
+                jsonArray.append(strValue)
 
-		#begin to parse jason array
-		index = 0
+                index += step
+            elif jsonStr[index].isdigit() == True:  # element is number
+                numValue, step = self.parseNumber(jsonStr[index: len(jsonStr)])
 
-		if jasonStr[index] != '[':
-			return None, -1, PARSER_SYNTAXERROR
+                jsonArray.append(numValue)
 
-		index += 1
+                index += step
+            else:
+                raise jsonParserException("Unknown Exception")
 
-		while index < len(jasonStr):
-			if jasonStr[index] == ']':
-				twoBraces = True
+            if index < len(jsonStr) and jsonStr[index] == ',':
+                index += 1
 
-				break
+        if twoBraces == True:
+            return jsonArray, index + 1
+        else:
+            raise jsonParserException("Syntax Error: Missing \']\'")
 
-			if jasonStr[index] == '"':						#element is string
-				strValue, step, status = self.parseString(jasonStr[index: len(jasonStr)])
+    def parseString(self, jsonStr):
 
-				if status != PARSER_SUCCESS:
-					return None, -1, PARSER_SYNTAXERROR
+        # check the quotation marks completion
+        twoQuotation = False
 
-				jasonArray.append(strValue)
+        # begin to parse string
+        index = 0
 
-				index += step
-			elif jasonStr[index].isdigit() == True:			#element is number
-				numValue, step, status = self.parseNumber(jasonStr[index: len(jasonStr)])
+        if jsonStr[index] != '"':
+            raise jsonParserException("Syntax Error: Missing \'\"\'")
 
-				if status != PARSER_SUCCESS:
-					return None, -1, PARSER_SYNTAXERROR
+        index += 1
 
-				jasonArray.append(numValue)
+        while index < len(jsonStr):
+            if jsonStr[index] == '"':
+                twoQuotation = True
 
-				index += step
-			else:
-				return None, -1, PARSER_SYNTAXERROR
+                break
 
-		if twoBraces == True:
-			return jasonArray, index+1, PARSER_SUCCESS
-		else:
-			return None, -1, PARSER_SYNTAXERROR
+            index += 1
 
+        if twoQuotation == True:
+            if index > 1:
+                return jsonStr[1: index], index + 1
+            else:  # empty string element
+                return "", index + 1
+        else:
+            raise jsonParserException("Syntax Error: Missing \'\"\'")
 
-	def parseString(self, jasonStr):
+    def parseNumber(self, jsonStr):
 
-		#check the quotation marks completion
-		twoQuotation = False
+        # whether the number is double
+        isFloat = False
 
-		#begin to parse string
-		index = 0
+        # begin to parse number
+        index = 0
 
-		if jasonStr[index] != '"':
-			return None, -1, PARSER_SYNTAXERROR
+        while index < len(jsonStr):
+            if jsonStr[index].isdigit() == False:
+                break
+            elif jsonStr[index] == '.':
+                if isFloat == False:
+                    isFloat = True
+                else:
+                    raise jsonParserException("Syntax Error: Invalid float number")
 
-		index += 1
+            index += 1
 
-		while index < len(jasonStr):
-			if jasonStr[index] == '"':
-				twoQuotation = True
+        if isFloat == True:
+            return float(jsonStr[0: index]), index
+        else:
+            return int(jsonStr[0: index]), index
 
-				break
-			
-			index += 1
+    # use regular expression to eliminate all spaces
+    def deleteSpace(self, jsonStr):
 
+        space = re.compile(r"[\r\n\s\t]")
 
-		if twoQuotation == True:
-			if index > 1:
-				return jasonStr[1: index], index+1, PARSER_SUCCESS
-			else:												#empty string element
-				return "", index+1, PARSER_SUCCESS
-		else:
-			return None, -1, PARSER_SYNTAXERROR
+        return re.sub(space, '', jsonStr)
 
-	def parseNumber(self, jasonStr):
+    def printJsonDict(self):
 
-		#whether the number is double
-		isFloat = False
+        if len(self.jsonDict) == 0:
 
-		#begin to parse number
-		index = 0
+            raise jsonParserException("Empty Json dictionary")
+        else:  # print dictionary
 
-		while index < len(jasonStr):
-			if jasonStr[index].isdigit() == False:
-				break
-			elif jasonStr[index] == '.':
-				if isFloat == False:
-					isFloat = True
-				else:
-					return None, -1, PARSER_NUMERICERROR
+            # cancel sorting module
+            pprint._sorted = lambda x: x
 
-			index += 1
+            pp = pprint.PrettyPrinter(indent=4)
 
-		if isFloat == True:
-			return float(jasonStr[0: index]), index, PARSER_SUCCESS
-		else:
-			return int(jasonStr[0: index]), index, PARSER_SUCCESS
+            jsonFormatStr = json.dumps(self.jsonDict)
 
-	#use regular expression to eliminate all spaces
-	def deleteSpace(self, jasonStr):
+            pp.pprint(json.loads(jsonFormatStr))
 
-		space = re.compile(r"[\r\n\s\t]")
-
-		return re.sub(space, '', jasonStr)
-
-	def printJasonDict(self):
-
-		if len(self.jasonDict) == 0:
-
-			return PARSER_EMPTYDICT
-		else:									#print dictionary
-
-			pass
-
-
-
+            return
