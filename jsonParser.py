@@ -1,19 +1,24 @@
 #!/usr/bin/env python
 
-from parser import *
-from fileUtils import *
-from exceptionHandler import *
+from parser import JsonParser
+from fileUtils import FileUtils
+from exceptionHandler import jsonParserException
 
 if __name__ == '__main__':
 
     mParser = JsonParser()
 
-    # mFileUtils = FileUtils()
+    mFileUtils = FileUtils()
 
     try:
-        mParser.parseJson(
-            ' \n  {"name":"zyh", \r \n "ID" : 123, "friend":[1,2,"bie"], "stuff":{"brand":"nike", "Type":"running shoe", "price": 500}}   \r  \r\n')
+        jsonStr = mFileUtils.readFromFile('JsonFiles/json2.txt')
 
-        mParser.printJsonDict()
+        mParser.parseJson(jsonStr)
+        #mParser.printJsonDict()
+
+        mParser.outputToFile('OutputFiles/output1.txt')
+
     except jsonParserException as e:
+        print e
+    except Exception as e:
         print e
