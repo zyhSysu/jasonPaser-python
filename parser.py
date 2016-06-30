@@ -208,7 +208,7 @@ class JsonParser:
             raise jsonParserException("printJsonDict -- Empty Json dictionary")
         else:  # print dictionary
 
-            jsonFormatStr = json.dumps(self.jsonDict, indent=4, separators=(',', ': '))
+            jsonFormatStr = json.dumps(self.jsonDict, indent = 4, separators = (',', ': '))
 
             print jsonFormatStr
 

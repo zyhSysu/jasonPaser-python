@@ -25,6 +25,6 @@ class FileUtils:
 
     def writeToFile(self, filePath, jsonDict):
         with open(filePath, 'w') as outputFile:
-            json.dump(jsonDict, outputFile, indent=4, separators=(',', ': '))
+            json.dump(jsonDict, outputFile, indent = 4, separators = (',', ': '))
 
 
